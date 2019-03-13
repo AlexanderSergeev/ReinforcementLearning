@@ -2,15 +2,11 @@ import gym
 import gym.spaces
 import numpy as np
 
-#TODO: поиграться со значениями
-
-
 def check_policy_init(initial_policy):
     assert type(initial_policy) in (np.ndarray, np.matrix)
     assert np.allclose(initial_policy, 1. / n_actions)
     assert np.allclose(np.sum(initial_policy, axis=1), 1)
     print('Policy initialization: Ok!')
-
 
 def check_generate_session_func(generation_func):
     s, a, r = generation_func(policy)
@@ -18,7 +14,6 @@ def check_generate_session_func(generation_func):
     assert len(s) == len(a)
     assert type(r) in [float, np.float]
     print('Session generation function: Ok!')
-
 
 def check_update_policy_func(update_func):
     elite_states, elite_actions = ([1, 2, 3, 4, 2, 0, 2, 3, 1], [0, 2, 4, 3, 2, 0, 1, 3, 3])
@@ -163,9 +158,14 @@ def update_policy(elite_states, elite_actions, n_states, n_actions):
 def rl_cross_entropy():
     # Useful constants, all should be applied somewhere in your code
     n_sessions = 200  # generate n_sessions for analysis
+    # чем больше n_sessions, тем намного медленнее спуск, но больше mean reward (+3 после 100 итераций и n_sessions = 500)
     percentile = 20  # take this percentage of 'elite' states/actions
+    # чем меньше percentile, тем медленнее спуск и меньше mean reward (-161 после 100 итераций и percentile = 10)
     alpha = 0.3  # alpha-blending for policy updates
+    # чем больше alpha, тем меньше mean reward (-4 после 100 итераций и alpha = 0.5)
+    # сейчас mean reward примерно -0.5 после 100 итераций
     total_iterations = 100
+    # чем больше total_iterations, тем чаще положительный mean reward, ниже theshold
     visualize = True
     log = []
 

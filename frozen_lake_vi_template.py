@@ -4,7 +4,53 @@ import numpy as np
 from mdp import FrozenLakeEnv
 from mdp import has_graphviz
 
+def get_action_value(mdp, state_values, state, action, gamma):
+    """ Computes Q(s,a) """
+    q = 0
+    for s, prob_s in mdp.get_next_states(state,action).items():
+        q += prob_s * (mdp.get_reward(state, action, s) + gamma * state_values[s])
+    return q
 
+def get_new_state_value(mdp, state_values, state, gamma):
+    """ Computes next V(s) .Please do not change state_values in process. """
+    if mdp.is_terminal(state):
+        return 0
+    q = [get_action_value(mdp, state_values, state, action, gamma) for action in mdp.get_possible_actions(state)]
+    return max(q)
+
+def get_optimal_action(mdp, state_values, state, gamma=0.9):
+    """ Finds optimal action. """
+    if mdp.is_terminal(state):
+        return None
+    q = {a: get_action_value(mdp,state_values,state,a,gamma)
+        for a in mdp.get_possible_actions(state)}
+    return max(q, key=q.get)
+
+def rl_value_iteration(mdp, gamma, num_iter, min_difference, init_state_values):
+    # Initialize V(s)
+    state_values = init_state_values
+
+    for i in range(num_iter):
+        # Compute new state values using the functions you defined above.
+        # It must be a dict {state : float V_new(state)}
+        new_state_values = {s : get_new_state_value(mdp,state_values,s,gamma) for s in mdp.get_all_states()}
+
+        assert isinstance(new_state_values, dict)
+
+        # Compute difference
+        diff = max(abs(new_state_values[s] - state_values[s]) for s in mdp.get_all_states())
+        if not visualize:
+            print('Iteration = %4i | Difference = %.3f |   ' % (i, diff), end='')
+            print('   '.join('V(%s) = %.3f' % (s, v) for s, v in state_values.items()), end='\n')
+
+        # Updating state_values
+        state_values = new_state_values
+
+        if diff < min_difference:
+            print('Done!')
+            return state_values, True
+
+    return state_values, False
 
 def draw_policy(mdp, state_values, fig=None):
     h, w = mdp.desc.shape
@@ -56,7 +102,7 @@ def mass_gaming(mdp, gamma, num_iter, games_number, steps_number):
         s = mdp.reset()
         rewards = []
         for t in range(steps_number):
-            # s, r, done, _ = mdp.step(get_optimal_action(mdp, state_values, s, gamma))
+            s, r, done, _ = mdp.step(get_optimal_action(mdp, state_values, s, gamma))
             rewards.append(r)
             if done:
                 break
@@ -79,27 +125,30 @@ if __name__ == '__main__':
     min_difference = 1e-5
 
     # Play in Frozen Lake Env
-    state_values = {}  # Initialize state_values
+    state_values = {s : 0 for s in mdp.get_all_states()}  # Initialize state_values
 
     # Run value iteration algo!
-    state_values, _ = None, None
+    state_values, _ = rl_value_iteration(mdp, gamma, num_iter, min_difference, state_values)
 
     # See how our agent performs - e.g. render what is going on when agent choose `optimal` value
     s = mdp.reset()
     mdp.render()
     rewards = []  # Save all rewards to see mean reward.
 
-    # Your code here!
-
+    for t in range(num_iter):
+        s, r, done, _ = mdp.step(get_optimal_action(mdp, state_values, s, gamma))
+        rewards.append(r)
+        if done: break
     print('Average reward: ', np.mean(rewards))
 
-    # if visualize:
-    #     draw_policy(mdp, state_values)
+    if visualize:
+        draw_policy(mdp, state_values)
 
     # Let's see how it is improving in time.
-    # visualize_step_by_step(mdp, gamma, num_iter, min_difference)
+    visualize_step_by_step(mdp, gamma, num_iter, min_difference)
 
     # Express test!
+    visualize=False
     mass_gaming(mdp, gamma, num_iter, 1000, 100)
 
 

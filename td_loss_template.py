@@ -5,9 +5,11 @@ import gym
 from dqn_agent import DQNAgent
 from preprocess import PreprocessAtari
 from replay_buffer import ReplayBuffer
+from framebuffer import FrameBuffer
 
 
-def compute_td_loss(states, actions, rewards, next_states, is_done, gamma=0.99, check_shapes=False):
+def compute_td_loss(states, actions, rewards, next_states, is_done, agent, target_network,
+                    gamma=0.99, check_shapes=False):
     """ Compute td loss using torch operations only. Use the formula above. """
     states = Variable(torch.FloatTensor(states))  # shape: [batch_size, c, h, w]
     actions = Variable(torch.LongTensor(actions))  # shape: [batch_size]
@@ -36,7 +38,7 @@ def compute_td_loss(states, actions, rewards, next_states, is_done, gamma=0.99, 
     # compute "target q-values" for loss - it's what's inside square parentheses in the above formula.
     # at the last state use the simplified formula: Q(s,a) = r(s,a) since s' doesn't exist
     # you can multiply next state values by is_not_done to achieve this.
-    target_qvalues_for_actions = None
+    target_qvalues_for_actions = rewards + gamma * next_state_values
 
     # mean squared error loss to minimize
     loss = torch.mean((predicted_qvalues_for_actions - target_qvalues_for_actions.detach()) ** 2)
@@ -52,6 +54,7 @@ def compute_td_loss(states, actions, rewards, next_states, is_done, gamma=0.99, 
 if __name__ == '__main__':
     env = gym.make("BreakoutDeterministic-v0")  # create raw env
     env = PreprocessAtari(env)
+    env = FrameBuffer(env, n_frames=4, dim_order='pytorch')
 
     observation_shape = env.observation_space.shape
     n_actions = env.action_space.n
@@ -67,11 +70,11 @@ if __name__ == '__main__':
 
     target_network.load_state_dict(agent.state_dict())
     # sanity checks
-    obs_batch, act_batch, reward_batch, next_obs_batch, is_done_batch = exp_replay.sample(10)
+    obs_batch, act_batch, reward_batch, next_obs_batch, is_done_batch = exp_replay.sample(1)
 
-    loss = compute_td_loss(obs_batch, act_batch, reward_batch, next_obs_batch, is_done_batch, gamma=0.99,
-                           check_shapes=True)
+    loss = compute_td_loss(obs_batch, act_batch, reward_batch, next_obs_batch, is_done_batch, agent, target_network,
+                           gamma=0.99, check_shapes=True)
     loss.backward()
 
     assert np.any(next(agent.parameters()).grad.data.numpy() != 0), "loss must be differentiable w.r.t. network weights"
-    print("TD Loss OK")
+    print("TD Loss OK!")

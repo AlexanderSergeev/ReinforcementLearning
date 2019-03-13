@@ -37,9 +37,12 @@ def test_get_cumulative_rewards():
 class ReinforceAgent(nn.Module):
     def __init__(self, state_dim, n_actions):
         super(ReinforceAgent, self).__init__()
-        pass
+        self.fc1 = nn.Linear(state_dim[0], 42)
+        self.fc2 = nn.Linear(42, n_actions)
 
     def forward(self, x):
+        x = F.relu(self.fc1(x))
+        x = self.fc2(x)
         return x
 
 
@@ -51,8 +54,9 @@ def predict_proba(states):
     :returns: numpy array of shape [batch, n_actions]
     """
     # convert states, compute logits, use softmax to get probability
-    probs = None
-    return probs
+    some = F.softmax(agent(torch.FloatTensor(states)))
+
+    return some.data.numpy()
 
 
 # < YOUR CODE HERE >
@@ -63,14 +67,17 @@ def generate_session(t_max=1000):
     """
     # arrays to record session
     states, actions, rewards = [], [], []
-
+    s = env.reset()
     for t in range(t_max):
 
         # action probabilities array aka pi(a|s)
-        action_probas = None
-        a = None
+        action_probas = predict_proba(np.array([s]))[0]
+        a = np.random.choice(n_actions, p=action_probas)
         new_s, r, done, info = env.step(a)
 
+        states.append(s)
+        actions.append(a)
+        rewards.append(r)
         # record session history to train later
         s = new_s
         if done:
@@ -87,14 +94,17 @@ def get_cumulative_rewards(rewards,  # rewards at each step
     take a list of immediate rewards r(s,a) for the whole session
     compute cumulative returns (a.k.a. G(s,a) in Sutton '16)
     G_t = r_t + gamma*r_{t+1} + gamma^2*r_{t+2} + ...
-
     The simple way to compute cumulative rewards is to iterate from last to first time tick
     and compute G_t = r_t + gamma*G_{t+1} recurrently
-
     You must return an array/list of cumulative rewards with as many elements as in the initial rewards.
     """
-    cumulative_rewards = []
-    return cumulative_rewards
+
+    cumulative_rewards = [rewards.pop()]
+    for rew in reversed(rewards):
+        cumulative_rewards.append(rew + gamma * cumulative_rewards[-1])
+
+    return list(reversed(cumulative_rewards))
+
 
 # Helper function
 def to_one_hot(y, n_dims=None):
@@ -114,6 +124,7 @@ def train_on_session(optimizer, states, actions, rewards, gamma=0.99):
     Please use Adam optimizer with default parameters.
     """
 
+    optimizer.zero_grad()
     # cast everything into a variable
     states = Variable(torch.FloatTensor(states))
     actions = Variable(torch.IntTensor(actions))
@@ -121,9 +132,9 @@ def train_on_session(optimizer, states, actions, rewards, gamma=0.99):
     cumulative_returns = Variable(torch.FloatTensor(cumulative_returns))
 
     # predict logits, probas and log-probas using an agent.
-    logits = None
-    probas = None
-    logprobas = None
+    logits = agent(states)
+    probas = F.softmax(logits, dim=1)
+    logprobas = F.log_softmax(logits, dim=1)
 
     assert all(isinstance(v, Variable) for v in [logits, probas, logprobas]), \
         "please use compute using torch tensors and don't use predict_proba function"
@@ -132,9 +143,13 @@ def train_on_session(optimizer, states, actions, rewards, gamma=0.99):
     logprobas_for_actions = torch.sum(logprobas * to_one_hot(actions), dim=1)
 
     # REINFORCE objective function
-    J_hat = None
+    J_hat = torch.mean(torch.dot(logprobas_for_actions, cumulative_returns))
 
-    loss = 0
+
+    loss = -1 * J_hat
+    loss.backward()
+
+    optimizer.step()
 
     # technical: return session rewards to print them later
     return np.sum(rewards)

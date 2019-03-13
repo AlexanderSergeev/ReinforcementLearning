@@ -2,6 +2,11 @@
 import numpy as np
 import random
 
+import gym
+from preprocess import PreprocessAtari
+from dqn_agent import DQNAgent
+
+
 class ReplayBuffer(object):
     def __init__(self, size):
         """Create Replay buffer.
@@ -61,3 +66,23 @@ class ReplayBuffer(object):
         """
         idxes = [random.randint(0, len(self._storage) - 1) for _ in range(batch_size)]
         return self._encode_sample(idxes)
+
+
+if __name__ == '__main__':
+    exp_replay = ReplayBuffer(10)
+    env = gym.make("BreakoutDeterministic-v0")  # create raw env
+    env = PreprocessAtari(env)
+
+    observation_shape = env.observation_space.shape
+    n_actions = env.action_space.n
+    state_dim = observation_shape
+    env.reset()
+    obs, _, _, _ = env.step(env.action_space.sample())
+    agent = DQNAgent(state_dim, n_actions, epsilon=0.5)
+    for _ in range(30):
+        exp_replay.add(env.reset(), env.action_space.sample(), 1.0, env.reset(), done=False)
+
+    obs_batch, act_batch, reward_batch, next_obs_batch, is_done_batch = exp_replay.sample(5)
+
+    assert len(exp_replay) == 10, "experience replay size should be 10 because that's what maximum capacity is"
+    print('Replay Ok')

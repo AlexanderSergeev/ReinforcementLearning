@@ -1,10 +1,9 @@
 import gym
 import gym.spaces
 import math
-from qlearning import QLearningAgent
 import numpy as np
 import time
-
+from qlearning_template import QLearningAgent
 
 def discretize_range(lower_bound, upper_bound, num_bins):
     return np.linspace(lower_bound, upper_bound, num_bins + 1)[1:-1]
@@ -23,7 +22,7 @@ def build_state(observation):
 
 def play_and_train(env, agent, visualize=False, t_max=10 ** 4):
     """This function should
-    - run a full game, actions given by agent.getAction(s)
+    - run a full game, actions given by agent.get_action(s)
     - train agent using agent.update(...) whenever possible
     - return total reward"""
     total_reward = 0.0
@@ -32,7 +31,7 @@ def play_and_train(env, agent, visualize=False, t_max=10 ** 4):
     for t in range(t_max):
         d_s = build_state(s)
 
-        a = agent.getAction(d_s)
+        a = agent.get_action(d_s)
 
         next_s, r, done, _ = env.step(a)
         if visualize:
@@ -57,8 +56,7 @@ if __name__ == '__main__':
     print(env.observation_space.low)
     print('CartPole state: %s' % (env.reset()))
 
-    agent = QLearningAgent(alpha=0.3, epsilon=0.5, discount=1.0,
-                           getLegalActions=lambda s: range(n_actions))
+    agent = QLearningAgent(alpha = 0.3, get_legal_actions=lambda s: range(n_actions), epsilon=0.5, discount=1.0)
 
     # (x, x', theta, theta')
     state_bins = [  # Cart position.

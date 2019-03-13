@@ -1,3 +1,7 @@
+import os
+
+os.environ["PATH"] += os.pathsep + 'D:/Anaconda/Library/bin/graphviz/'
+
 from mdp import MDP
 import matplotlib.pyplot as plt
 import numpy as np
@@ -40,7 +44,9 @@ def check_get_optimal_action(get_optimal_action_func, mdp, state_values, gamma):
 def get_action_value(mdp, state_values, state, action, gamma):
     """ Computes Q(s,a) """
     q = 0
-
+    for s, prob_s in mdp.get_next_states(state, action).items():
+        q += prob_s * (mdp.get_reward(state, action, s) + gamma * state_values[s])
+        
     return q
 
 
@@ -49,7 +55,10 @@ def get_new_state_value(mdp, state_values, state, gamma):
     if mdp.is_terminal(state):
         return 0
 
-    return 0
+    q = [get_action_value(mdp, state_values, state, action, gamma) 
+         for action in mdp.get_possible_actions(state)]
+    
+    return max(q)
 
 
 def rl_value_iteration(mdp, gamma, num_iter, min_difference, init_state_values):
@@ -59,7 +68,7 @@ def rl_value_iteration(mdp, gamma, num_iter, min_difference, init_state_values):
     for i in range(num_iter):
         # Compute new state values using the functions you defined above.
         # It must be a dict {state : float V_new(state)}
-        new_state_values = {}
+        new_state_values = {s: get_new_state_value(mdp, state_values, s, gamma) for s in mdp.get_all_states()}
 
         assert isinstance(new_state_values, dict)
 
@@ -69,7 +78,7 @@ def rl_value_iteration(mdp, gamma, num_iter, min_difference, init_state_values):
         print('   '.join('V(%s) = %.3f' % (s, v) for s, v in state_values.items()), end='\n')
 
         # Updating state_values
-        state_values = None
+        state_values = new_state_values
 
         if diff < min_difference:
             print('Done!')
@@ -83,7 +92,10 @@ def get_optimal_action(mdp, state_values, state, gamma=0.9):
     if mdp.is_terminal(state):
         return None
 
-    return None
+    q = {a: get_action_value(mdp, state_values, state, a, gamma)
+         for a in mdp.get_possible_actions(state)}
+    
+    return max(q, key=q.get)
 
 
 def test_optimal_strategy(mdp, state_values, gamma, max_steps):
@@ -131,7 +143,7 @@ if __name__ == '__main__':
     print("mdp.get_reward('s1', 'a0', 's0') = ", mdp.get_reward('s1', 'a0', 's0'))
     print("mdp.get_transition_prob('s1', 'a0', 's0') = ", mdp.get_transition_prob('s1', 'a0', 's0'))
 
-    visualize = False
+    visualize = True
     from mdp import has_graphviz
     print('Graphviz available: ', has_graphviz)
 
@@ -153,7 +165,7 @@ if __name__ == '__main__':
     num_iter = 100  # Maximum iterations, excluding initialization
     min_difference = 0.001  # stop Value Iteration if new values are this close to old values (or closer)
 
-    init_values = {}
+    init_values = {s:0 for s in mdp.get_all_states()}
     state_values, _ = rl_value_iteration(mdp, gamma, num_iter, min_difference, init_values)
 
     # Draw state_values after training.
