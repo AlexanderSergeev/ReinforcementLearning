@@ -2,6 +2,7 @@ import gym
 import gym.spaces
 import time
 import numpy as np
+from sklearn.neural_network import MLPClassifier
 
 
 def generate_session(agent, t_max=10**5):
@@ -14,17 +15,19 @@ def generate_session(agent, t_max=10**5):
         # Choose action from policy
         # You can use np.random.choice() func
         # a = ?
-        a = None
+        probabilities = agent.predict_proba([s])[0]
+        a = np.random.choice(n_actions, p=probabilities)
 
         # Do action `a` to obtain new_state, reward, is_done,
-        new_s, r, is_done = None, None, None
+        new_s, r, is_done, _ = env.step(a)
 
         # Record state, action and add up reward to states, actions and total_reward accordingly.
-        # states
-        # actions
-        # total_reward
+        states.append(s)
+        actions.append(a)
+        total_reward += r
 
         # Update s for new cycle iteration
+        s = new_s
 
         if is_done:
             break
@@ -50,13 +53,13 @@ def select_elites(states_batch, actions_batch, rewards_batch, percentile=50):
     states_batch, actions_batch, rewards_batch = map(np.array, [states_batch, actions_batch, rewards_batch])
 
     # Compute reward threshold
-    reward_threshold = None
+    reward_threshold = np.percentile(rewards_batch, percentile)
 
     # Compute elite states using reward threshold
-    elite_states = None
+    elite_states = states_batch[rewards_batch >= reward_threshold]
 
     # Compute elite actions using reward threshold
-    elite_actions = None
+    elite_actions = actions_batch[rewards_batch >= reward_threshold]
 
     elite_states, elite_actions = map(np.concatenate, [elite_states, elite_actions])
 
@@ -72,14 +75,14 @@ def rl_approx_cross_entropy(nn_agent):
     for i in range(total_iterations):
 
         # Generate n_sessions for further analysis.
-        sessions = None
+        sessions = [generate_session(nn_agent) for _ in range(n_sessions)]
         states_batch, actions_batch, rewards_batch = map(np.array, zip(*sessions))
 
         # Select elite states & actions.
-        elite_states, elite_actions = None, None
+        elite_states, elite_actions = select_elites(states_batch, actions_batch, rewards_batch, percentile=percentile)
 
         # Update policy using elite_states, elite_actions.
-        # nn_agent
+        nn_agent.fit(elite_states, elite_actions)
 
         # Info for debugging
         mean_reward = np.mean(rewards_batch)
@@ -91,6 +94,8 @@ def rl_approx_cross_entropy(nn_agent):
         if np.mean(rewards_batch) > 195:
             print('You Win! :)')
             break
+        else:
+            env.render()
 
 
 def test_rl_approx_cross_entropy(nn_agent):
@@ -100,10 +105,11 @@ def test_rl_approx_cross_entropy(nn_agent):
         # Choose action from nn_agent
         # You can use np.random.choice() func
         # a = ?
-        a = None
+        probs = nn_agent.predict_proba([s])[0]
+        a = np.random.choice(n_actions, p=probs)
 
         # Do action `a` to obtain new_state, reward, is_done,
-        new_s, r, is_done = None, None, None
+        new_s, r, is_done = env.step(a)
 
         if is_done:
             break
@@ -118,18 +124,20 @@ def test_rl_approx_cross_entropy(nn_agent):
 
 if __name__ == '__main__':
     # Create environment 'CartPole-v0'
-    env = None
+    env = gym.make('CartPole-v0').env
+    env.reset()
+    env.render()
+
     s = env.reset()
 
     # Compute number of actions for this environment
-    n_actions = None
-
+    n_actions = env.action_space.n
     print('Actions number = %i' % n_actions)
 
     # Create neural network with 2 hidden layers of 10 & 10 neurons each & tanh activations
     # use MLPClassifier from scikit-learn
 
-    agent = None
+    agent = MLPClassifier((10, 10), activation='tanh', warm_start=True)
 
     # Initialize agent to the dimension of state and amount of actions
     agent.fit([s] * n_actions, range(n_actions))
