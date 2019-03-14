@@ -109,7 +109,7 @@ def test_rl_approx_cross_entropy(nn_agent):
         a = np.random.choice(n_actions, p=probs)
 
         # Do action `a` to obtain new_state, reward, is_done,
-        new_s, r, is_done = env.step(a)
+        new_s, r, is_done, _ = env.step(a)
 
         if is_done:
             break
