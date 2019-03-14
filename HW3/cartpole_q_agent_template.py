@@ -14,9 +14,8 @@ def discretize_value(value, bins):
 
 
 def build_state(observation):
-	# you should use discretize_value() functions to build single state representation.
-    state = None
-	
+    # you should use discretize_value() functions to build single state representation.
+    state = sum(discretize_value(feature, state_bins[i]) * ((max_bins + 1) ** i) for i, feature in enumerate(observation))
     return state
 
 
