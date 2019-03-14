@@ -14,6 +14,11 @@ class DQNAgent(nn.Module):
         img_c, img_w, img_h = state_shape
 
         # Define your network body here. Please make sure agent is fully contained here
+        self.conv1 = nn.Conv2d(4, 16, kernel_size=3, stride=2)
+        self.conv2 = nn.Conv2d(16, 32, kernel_size=3, stride=2)
+        self.conv3 = nn.Conv2d(32, 64, kernel_size=3, stride=2)
+        self.fc1 = nn.Linear(64 * 7 * 7, 256)
+        self.fc2 = nn.Linear(256, self.n_actions)
 
 
     def forward(self, state_t):
@@ -22,7 +27,14 @@ class DQNAgent(nn.Module):
         :param state_t: a batch of 4-frame buffers, shape = [batch_size, 4, h, w]
         Hint: if you're running on GPU, use state_t.cuda() right here.
         """
-        qvalues = None
+
+        x = F.relu(self.conv1(state_t))
+        x = F.relu(self.conv2(x))
+        x = F.relu(self.conv3(x))
+        x = x.view(-1, 64 * 7 * 7)
+        x = F.relu(self.fc1(x))
+        qvalues = self.fc2(x)
+
         assert isinstance(qvalues, Variable) and qvalues.requires_grad, "qvalues must be a torch variable with grad"
         assert len(qvalues.shape) == 2 and qvalues.shape[0] == state_t.shape[0] and qvalues.shape[1] == self.n_actions
 

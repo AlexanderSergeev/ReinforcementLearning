@@ -25,10 +25,11 @@ class PreprocessAtari(ObservationWrapper):
         #  * cast image to grayscale
         #  * convert image pixels to (0,1) range, float32 type
 
-        img = img[30:-10, 8:-8, :]
-        #cv
-        img.reshape(self.img_size)
-        return img.astype(np.float32)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        img = cv2.resize(img, (self.img_size[1], self.img_size[1]))
+        img = img / 255
+
+        return np.expand_dims(img.astype(np.float32), axis=0)
 
 
 if __name__ == '__main__':
