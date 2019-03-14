@@ -25,7 +25,9 @@ class PreprocessAtari(ObservationWrapper):
         #  * cast image to grayscale
         #  * convert image pixels to (0,1) range, float32 type
 
-        img = None
+        img = img[30:-10, 8:-8, :]
+        #cv
+        img.reshape(self.img_size)
         return img.astype(np.float32)
 
 
