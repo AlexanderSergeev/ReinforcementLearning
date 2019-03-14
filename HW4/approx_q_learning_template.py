@@ -43,8 +43,8 @@ def test_td_loss(environment, net):
     loss = compute_td_loss([s], [a], [r], [next_s], [done], check_shapes=False)
     loss.backward()
 
-    #assert isinstance(loss, Variable) and tuple(loss.data.size()) == (1,), \
-        #'you must return scalar loss - mean over batch'
+    # assert isinstance(loss, Variable) and tuple(loss.data.size()) == (1,), \
+    #     'you must return scalar loss - mean over batch'
     assert np.any(next(net.parameters()).grad.data.numpy() != 0), \
         'loss must be differentiable w.r.t. network weights'
 
@@ -67,12 +67,13 @@ def where(cond, x_1, x_2):
 
 # < YOUR CODE HERE >
 def define_network(state_dim, n_actions):
-    network = nn.Sequential()
-    network.add_module('layer1',nn.Linear(state_dim[0],42))
-    network.add_module('relu1', nn.ReLU())
-    network.add_module('layer2',nn.Linear(42,102))
-    network.add_module('relu2', nn.ReLU())
-    network.add_module('layer3',nn.Linear(102,n_actions))
+    network = nn.Sequential(
+        nn.Linear(state_dim[0], 50),
+        nn.ReLU(),
+        nn.Linear(50, 50),
+        nn.ReLU(),
+        nn.Linear(50, n_actions)
+    )
     return network
 
 
@@ -84,14 +85,12 @@ def get_action(state, epsilon=0):
     """
     state = Variable(torch.FloatTensor(state))
     q_values = network(state).data.numpy()
-    
-    r=np.random.choice(2, p=[epsilon, 1-epsilon])
-    if r==1:
+
+    r = np.random.choice(n_actions, p=[epsilon, 1-epsilon])
+    if r == 1:
         return int(np.argmax(q_values))
     else:
-        return int(np.random.choice(2))
-
-    return None
+        return env.action_space.sample()
 
 
 # < YOUR CODE HERE >
@@ -105,24 +104,19 @@ def compute_td_loss(states, actions, rewards, next_states, is_done, gamma=0.99, 
 
     # get q-values for all actions in current states
     predicted_qvalues = network(states)  # < YOUR CODE HERE >
-
     # select q-values for chosen actions
     predicted_qvalues_for_actions = torch.sum(predicted_qvalues.cpu() * to_one_hot(actions, n_actions), dim=1)
-
     # compute q-values for all actions in next states
     predicted_next_qvalues = network(next_states)  # < YOUR CODE HERE >
-
     # compute V*(next_states) using predicted next q-values
-    next_state_values = predicted_next_qvalues.max()  # < YOUR CODE HERE >
+    next_state_values, _ = torch.max(predicted_next_qvalues, dim=1)
 
     assert isinstance(next_state_values.data, torch.FloatTensor)
 
     # compute 'target q-values' for loss
-    target_qvalues_for_actions = rewards+gamma*next_state_values  # < YOUR CODE HERE >
-
+    target_qvalues_for_actions = rewards + gamma * next_state_values  # < YOUR CODE HERE >
     # at the last state we shall use simplified formula: Q(s,a) = r(s,a) since s' doesn't exist
     target_qvalues_for_actions = where(is_done, rewards, target_qvalues_for_actions).cpu()
-
     # Mean Squared Error loss to minimize
     loss = torch.mean((predicted_qvalues_for_actions - target_qvalues_for_actions.detach()) ** 2)
 
@@ -144,7 +138,7 @@ def generate_session(t_max=1000, epsilon=0, train=False):
 
     for t in range(t_max):
         # a = <get_action_a> from agent # < YOUR CODE HERE >
-        a = get_action(s,epsilon)
+        a = get_action(s, epsilon=epsilon)
         next_s, r, done, _ = env.step(a)
         if train:
             opt.zero_grad()
@@ -184,7 +178,7 @@ if __name__ == '__main__':
 
     # Create Adam optimizer with lr=1e-4
     opt = torch.optim.Adam(network.parameters(), lr=1e-4)
-    epsilon = 0.4
+    epsilon = 0.5
     max_epochs = 1000
     if dump_logs:
         log_path = './logs/{:%Y_%m_%d_%H_%M}'.format(datetime.datetime.now())
@@ -197,7 +191,7 @@ if __name__ == '__main__':
             writer.add_scalar('Mean Reward', np.mean(session_rewards), i)
 
         # Code Epsilon decay <HERE>
-        epsilon = epsilon * 0.9
+        epsilon *= 0.99 if epsilon >= 1e-4 else epsilon
         assert epsilon >= 1e-4, 'Make sure epsilon is always nonzero during training'
 
         if np.mean(session_rewards) > 300:
